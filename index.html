@@ -121,9 +121,10 @@ tr.hunt-auto td{opacity:0.85}
 .kpi-val{font-size:26px;font-weight:700}
 .kpi-label{font-size:12px;color:var(--text2);margin-top:4px}
 .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-.chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative}
 .chart-card h3{font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2)}
 .chart-card.full{grid-column:1/-1}
+.chart-card.full canvas{height:300px !important}
 
 .hunt-progress{display:flex;align-items:center;gap:12px;padding:8px 24px;background:var(--card);border-bottom:1px solid var(--border)}
 .hunt-bar{flex:1;height:8px;background:var(--card2);border-radius:4px;overflow:hidden}
@@ -990,7 +991,7 @@ function renderAnalytics(){
     data:{labels:months.map(m=>{const d=new Date(m+'-01');return d.toLocaleDateString('en-US',{year:'2-digit',month:'short'});}),
       datasets:[{label:'Monthly',data:months.map(m=>mo[m]),backgroundColor:'rgba(240,80,110,0.6)',borderRadius:4,yAxisID:'y'},
         {label:'Cumulative',data:cumD,type:'line',borderColor:'#3b82f6',backgroundColor:'transparent',pointRadius:2,tension:0.3,yAxisID:'y1'}]},
-    options:{responsive:true,interaction:{mode:'index'},scales:{y:{beginAtZero:true,ticks:{callback:v=>'$'+v}},y1:{position:'right',beginAtZero:true,ticks:{callback:v=>'$'+v},grid:{display:false}}},plugins:{legend:{labels:{color:'#a1a1aa'}}}}});
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index'},scales:{y:{beginAtZero:true,ticks:{callback:v=>'$'+v}},y1:{position:'right',beginAtZero:true,ticks:{callback:v=>'$'+v},grid:{display:false}}},plugins:{legend:{labels:{color:'#a1a1aa'}}}}});
 
   const byT={};owned.forEach(r=>{const t=r.Type||'Other';byT[t]=(byT[t]||0)+(r['Landed Cost']||0);});
   dC('chart-type');
