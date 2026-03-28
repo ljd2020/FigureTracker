@@ -160,7 +160,10 @@ tr.hunt-auto td{opacity:0.85}
 <body>
 
 <div class="header">
-  <h1>Figure Tracker</h1>
+  <div>
+    <h1>Figure Tracker</h1>
+    <div style="font-size:11px;color:var(--text2);margin-top:2px">v<span id="app-version"></span></div>
+  </div>
   <div class="header-stats">
     <div class="stat"><div class="stat-val" id="h-total">0</div><div class="stat-label">Figures</div></div>
     <div class="stat"><div class="stat-val" id="h-spent">$0</div><div class="stat-label">Total Spent</div></div>
@@ -217,6 +220,34 @@ tr.hunt-auto td{opacity:0.85}
   </div>
   <div class="table-wrap">
     <table id="table-preorders">
+      <thead><tr>
+        <th style="width:60px">Img</th>
+        <th data-col="Title">Title <span class="sort-icon">↕</span></th>
+        <th data-col="Character">Character <span class="sort-icon">↕</span></th>
+        <th data-col="Brand">Brand <span class="sort-icon">↕</span></th>
+        <th data-col="Type">Type <span class="sort-icon">↕</span></th>
+        <th data-col="Scale">Scale <span class="sort-icon">↕</span></th>
+        <th data-col="Release Date">Release <span class="sort-icon">↕</span></th>
+        <th data-col="Best Price">Price <span class="sort-icon">↕</span></th>
+        <th data-col="Est. Shipping">Est. Ship <span class="sort-icon">↕</span></th>
+        <th data-col="Landed Cost">Landed <span class="sort-icon">↕</span></th>
+        <th data-col="Site">Site <span class="sort-icon">↕</span></th>
+        <th>Actions</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- WISHLIST -->
+<div id="tab-wishlist" style="display:none">
+  <div class="controls">
+    <input class="search" id="search-wishlist" placeholder="Search wishlist...">
+    <div class="spacer"></div>
+    <button class="btn btn-primary" onclick="openModal('wishlist')">+ Add to Wishlist</button>
+  </div>
+  <div class="table-wrap">
+    <table id="table-wishlist">
       <thead><tr>
         <th style="width:60px">Img</th>
         <th data-col="Title">Title <span class="sort-icon">↕</span></th>
@@ -361,12 +392,14 @@ tr.hunt-auto td{opacity:0.85}
 
 <script>
 // ====== STORAGE ======
+const APP_VERSION = '1.0.0';
 const STORAGE_KEY = 'figureTracker_v2';
 const IMAGES_KEY  = 'figureImages_v2';
-let DATA   = {owned:[], preorders:[], hunts:{}};
+let DATA   = {owned:[], preorders:[], hunts:{}, wishlist:[]};
 // hunts: { "slug": { character: "Name", wished: [{id, Title, ...}] } }
+// wishlist: global wishlist (Status:"W"), auto-appears in matching hunt tabs
 let IMGS   = {};
-let SORT   = {owned:{col:null,asc:true}, preorders:{col:null,asc:true}, hunt:{col:null,asc:true}};
+let SORT   = {owned:{col:null,asc:true}, preorders:{col:null,asc:true}, hunt:{col:null,asc:true}, wishlist:{col:null,asc:true}};
 let VIEW   = 'table';
 let PENDING_IMG = null;
 let CURRENT_TAB = 'owned';
@@ -381,8 +414,9 @@ function hydrate(){
   const d=localStorage.getItem(STORAGE_KEY), im=localStorage.getItem(IMAGES_KEY);
   if(d) DATA=JSON.parse(d);
   if(im) IMGS=JSON.parse(im);
-  // Ensure hunts exists
+  // Ensure collection arrays/objects exist (backward compat)
   if(!DATA.hunts) DATA.hunts={};
+  if(!DATA.wishlist) DATA.wishlist=[];
   return !!d;
 }
 
@@ -444,6 +478,7 @@ function rebuildTabs(){
   let html='';
   html+=`<div class="tab${CURRENT_TAB==='owned'?' active':''}" data-tab="owned">Owned</div>`;
   html+=`<div class="tab${CURRENT_TAB==='preorders'?' active':''}" data-tab="preorders">Pre-orders</div>`;
+  html+=`<div class="tab${CURRENT_TAB==='wishlist'?' active':''}" data-tab="wishlist">Wishlist</div>`;
   for(const slug of Object.keys(DATA.hunts)){
     const h=DATA.hunts[slug];
     const tabKey='hunt:'+slug;
@@ -453,10 +488,14 @@ function rebuildTabs(){
   html+=`<div class="tab${CURRENT_TAB==='analytics'?' active':''}" data-tab="analytics">Analytics</div>`;
   bar.innerHTML=html;
 
-  // Re-attach sort listeners for hunt table
+  // Re-attach sort listeners for hunt and wishlist tables
   document.querySelectorAll('#table-hunt th[data-col]').forEach(th=>{
     th.removeEventListener('click', huntSortHandler);
     th.addEventListener('click', huntSortHandler);
+  });
+  document.querySelectorAll('#table-wishlist th[data-col]').forEach(th=>{
+    th.removeEventListener('click', wishlistSortHandler);
+    th.addEventListener('click', wishlistSortHandler);
   });
 }
 
@@ -467,6 +506,15 @@ function huntSortHandler(e){
   th.closest('thead').querySelectorAll('th').forEach(x=>{x.classList.remove('sorted');if(x.querySelector('.sort-icon'))x.querySelector('.sort-icon').textContent='↕';});
   th.classList.add('sorted'); th.querySelector('.sort-icon').textContent=SORT.hunt.asc?'↑':'↓';
   renderHunt();
+}
+
+function wishlistSortHandler(e){
+  const th=e.currentTarget;
+  const col=th.dataset.col;
+  if(SORT.wishlist.col===col) SORT.wishlist.asc=!SORT.wishlist.asc; else SORT.wishlist={col,asc:true};
+  th.closest('thead').querySelectorAll('th').forEach(x=>{x.classList.remove('sorted');if(x.querySelector('.sort-icon'))x.querySelector('.sort-icon').textContent='↕';});
+  th.classList.add('sorted'); th.querySelector('.sort-icon').textContent=SORT.wishlist.asc?'↑':'↓';
+  renderWishlist();
 }
 
 // Tab click via event delegation
@@ -491,7 +539,7 @@ function switchTab(tab){
   // Update active tab highlight
   document.querySelectorAll('#tab-bar .tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
   // Hide all content panels
-  ['owned','preorders','hunt','analytics'].forEach(id=>{
+  ['owned','preorders','wishlist','hunt','analytics'].forEach(id=>{
     document.getElementById('tab-'+id).style.display='none';
   });
   document.getElementById('tab-analytics').classList.remove('show');
@@ -500,6 +548,9 @@ function switchTab(tab){
     document.getElementById('tab-owned').style.display='';
   } else if(tab==='preorders'){
     document.getElementById('tab-preorders').style.display='';
+  } else if(tab==='wishlist'){
+    document.getElementById('tab-wishlist').style.display='';
+    renderWishlist();
   } else if(isHuntTab(tab)){
     ACTIVE_HUNT=huntSlugFrom(tab);
     document.getElementById('tab-hunt').style.display='';
@@ -663,6 +714,32 @@ function renderPreorders(){
   </tr>`).join(''):'<tr><td colspan="12"><div class="empty">No pre-orders</div></td></tr>';
 }
 
+function renderWishlist(){
+  let rows=sortRows([...DATA.wishlist].filter(r=>{
+    const q=(document.getElementById('search-wishlist')?.value||'').toLowerCase();
+    return !q||(r.Title||'').toLowerCase().includes(q)||(r.Character||'').toLowerCase().includes(q)||(r.Brand||'').toLowerCase().includes(q);
+  }),'wishlist');
+  document.querySelector('#table-wishlist tbody').innerHTML=rows.length?rows.map(r=>`<tr>
+    <td class="thumb-cell">${thumbHTML('wishlist',r.id,r.Title)}</td>
+    <td title="${esc(r.Title)}">${esc(r.Title)}</td>
+    <td>${esc(r.Character||'')}</td>
+    <td>${esc(r.Brand||'')}</td>
+    <td>${typeBadge(r.Type)}</td>
+    <td>${scaleDisp(r.Scale)}</td>
+    <td>${fmtDate(r['Release Date'])}</td>
+    <td class="money">${fmt(r['Best Price'])}</td>
+    <td class="money">${fmt(r['Est. Shipping'])}</td>
+    <td class="money" style="font-weight:700">${fmt(r['Landed Cost'])}</td>
+    <td>${esc((r.Site||'').replace(/\n/g,' '))}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm btn-ghost" onclick="openModal('wishlist',${r.id})">Edit</button>
+      <button class="btn btn-sm btn-ghost" onclick="moveWishlistToPreorder(${r.id})">→ Pre-order</button>
+      <button class="btn btn-sm btn-ghost" onclick="moveWishlistToOwned(${r.id})">→ Owned</button>
+      <button class="btn btn-sm btn-danger" onclick="del('wishlist',${r.id})">×</button>
+    </td>
+  </tr>`).join(''):'<tr><td colspan="12"><div class="empty">No wishlist figures. Add figures here to track what you want to find.</div></td></tr>';
+}
+
 function renderHunt(){
   if(!ACTIVE_HUNT||!DATA.hunts[ACTIVE_HUNT]) return;
   const hunt=DATA.hunts[ACTIVE_HUNT];
@@ -681,7 +758,10 @@ function renderHunt(){
   const wishedRows=hunt.wished.map(r=>({
     ...r, _src:'wished', Status:'W'
   }));
-  let rows=[...ownedRows,...preorderRows,...wishedRows];
+  const wishlistRows=(DATA.wishlist||[]).filter(isMatch).map(r=>({
+    ...r, _src:'wishlist', Status:'W'
+  }));
+  let rows=[...ownedRows,...preorderRows,...wishedRows,...wishlistRows];
   if(q) rows=rows.filter(r=>
     (r.Title||'').toLowerCase().includes(q)||
     (r.Brand||'').toLowerCase().includes(q)||
@@ -691,10 +771,11 @@ function renderHunt(){
 
   // Stats
   const recv=DATA.owned.filter(isMatch).length;
-  const total=recv+DATA.preorders.filter(isMatch).length+hunt.wished.length;
+  const total=recv+DATA.preorders.filter(isMatch).length+hunt.wished.length+(DATA.wishlist||[]).filter(isMatch).length;
   const spent=DATA.owned.filter(isMatch).reduce((s,r)=>s+(r['Landed Cost']||0),0);
   const remain=DATA.preorders.filter(isMatch).reduce((s,r)=>s+(r['Landed Cost']||0),0)
-    +hunt.wished.reduce((s,r)=>s+(r['Best Price']||0),0);
+    +hunt.wished.reduce((s,r)=>s+(r['Landed Cost']||0),0)
+    +(DATA.wishlist||[]).filter(isMatch).reduce((s,r)=>s+(r['Landed Cost']||0),0);
 
   document.getElementById('hunt-recv-text').textContent=`${recv} / ${total} Received`;
   document.getElementById('hunt-fill').style.width=total?(recv/total*100)+'%':'0%';
@@ -704,19 +785,23 @@ function renderHunt(){
   const huntTab='hunt:'+ACTIVE_HUNT;
   document.querySelector('#table-hunt tbody').innerHTML=rows.length?rows.map(r=>{
     const src=r._src;
-    const imgTab=src==='wished'?huntImgTab:src;
+    const imgTab=src==='wished'?huntImgTab:src==='wishlist'?'wishlist':src;
     let actions='';
     if(src==='wished'){
       actions=`<button class="btn btn-sm btn-ghost" onclick="moveWishedToPreorder('${esc(ACTIVE_HUNT)}',${r.id})">→ Pre-order</button>
         <button class="btn btn-sm btn-ghost" onclick="moveWishedToOwned('${esc(ACTIVE_HUNT)}',${r.id})">→ Owned</button>
         <button class="btn btn-sm btn-ghost" onclick="openModal('${esc(huntTab)}',${r.id})">Edit</button>
         <button class="btn btn-sm btn-danger" onclick="del('${esc(huntTab)}',${r.id})">×</button>`;
+    } else if(src==='wishlist'){
+      actions=`<button class="btn btn-sm btn-ghost" onclick="moveWishlistToPreorder(${r.id})">→ Pre-order</button>
+        <button class="btn btn-sm btn-ghost" onclick="moveWishlistToOwned(${r.id})">→ Owned</button>
+        <span style="font-size:0.75rem;opacity:0.6">via Wishlist</span>`;
     } else if(src==='preorders'){
       actions=`<span style="font-size:0.75rem;opacity:0.6">via Pre-orders</span>`;
     } else {
       actions=`<span style="font-size:0.75rem;opacity:0.6">via Owned</span>`;
     }
-    return `<tr class="${src==='wished'?'':'hunt-auto'}">
+    return `<tr class="${src==='wished'||src==='wishlist'?'':'hunt-auto'}">
       <td class="thumb-cell">${thumbHTML(imgTab,r.id,r.Title)}</td>
       <td title="${esc(r.Title)}">${esc(r.Title)}</td>
       <td>${esc(r.Character||'')}</td>
@@ -733,7 +818,7 @@ function renderHunt(){
   }).join(''):`<tr><td colspan="12"><div class="empty">No ${esc(hunt.character)} figures found. Add figures with "${esc(hunt.character)}" as their Character in Owned or Pre-orders, or add wished entries here.</div></td></tr>`;
 }
 
-function renderAll(){ renderOwned(); renderPreorders(); if(ACTIVE_HUNT) renderHunt(); updateHeader() }
+function renderAll(){ renderOwned(); renderPreorders(); renderWishlist(); if(ACTIVE_HUNT) renderHunt(); updateHeader() }
 
 function updateHeader(){
   document.getElementById('h-total').textContent=DATA.owned.length;
@@ -750,7 +835,7 @@ function updateHeader(){
     const charLower=hunt.character.toLowerCase();
     const isMatch=r=>(r.Character||'').toLowerCase().includes(charLower);
     const recv=DATA.owned.filter(isMatch).length;
-    const total=recv+DATA.preorders.filter(isMatch).length+hunt.wished.length;
+    const total=recv+DATA.preorders.filter(isMatch).length+hunt.wished.length+(DATA.wishlist||[]).filter(isMatch).length;
     document.getElementById('h-hunt-val').textContent=recv+'/'+total;
     document.getElementById('h-hunt-label').textContent=hunt.character;
     huntStat.style.display='';
@@ -791,6 +876,7 @@ document.querySelectorAll('#table-preorders th[data-col]').forEach(th=>th.addEve
 
 document.getElementById('search-owned').addEventListener('input',renderOwned);
 document.getElementById('search-preorders').addEventListener('input',renderPreorders);
+document.getElementById('search-wishlist').addEventListener('input',renderWishlist);
 document.getElementById('search-hunt').addEventListener('input',renderHunt);
 ['filter-type-owned','filter-brand-owned','filter-site-owned'].forEach(id=>document.getElementById(id).addEventListener('change',renderOwned));
 
@@ -818,6 +904,7 @@ function openModal(tab,editId,focusImg=false){
   let modalTitle='';
   if(isHunt) modalTitle=(isEdit?'Edit ':'Add ')+huntCharacter+' Figure';
   else if(tab==='preorders') modalTitle=(isEdit?'Edit ':'Add ')+'Pre-order';
+  else if(tab==='wishlist') modalTitle=(isEdit?'Edit ':'Add ')+'Wishlist Figure';
   else modalTitle=(isEdit?'Edit ':'Add ')+'Figure';
 
   let h=`<h2>${esc(modalTitle)}</h2><form id="mf" onsubmit="return false" class="form-grid">`;
@@ -852,11 +939,11 @@ function openModal(tab,editId,focusImg=false){
     h+=`<div class="form-group"><label>Est. Shipping</label><input name="Est. Shipping" type="number" step="0.01" value="${item?.['Est. Shipping']||''}"></div>`;
     h+=`<div class="form-group"><label>Site</label><input name="Site" value="${esc((item?.Site||'').replace(/\n/g,' '))}" list="dl-s"></div>`;
     if(tab==='preorders') h+=`<div class="form-group"><label>Paid In Advance</label><input name="Paid In Advance" type="number" step="0.01" value="${item?.['Paid In Advance']||''}"></div>`;
-    if(isHunt) h+=`<input type="hidden" name="Status" value="W">`;
+    if(isHunt||tab==='wishlist') h+=`<input type="hidden" name="Status" value="W">`;
   }
 
   h+=`</form>`;
-  const allItems=[...DATA.owned,...DATA.preorders,...Object.values(DATA.hunts).flatMap(h=>h.wished)];
+  const allItems=[...DATA.owned,...DATA.preorders,...(DATA.wishlist||[]),...Object.values(DATA.hunts).flatMap(h=>h.wished)];
   h+=`<datalist id="dl-b">${[...new Set(allItems.map(r=>r.Brand).filter(Boolean))].sort().map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
   h+=`<datalist id="dl-s">${[...new Set(allItems.map(r=>(r.Site||'').replace(/\n/g,' ')).filter(Boolean))].sort().map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
   h+=`<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveModal('${esc(tab)}',${editId??'null'})">${isEdit?'Save':'Add'}</button></div>`;
@@ -1001,17 +1088,44 @@ function moveWishedToOwned(slug,id){
   persist(); persistImgs(); renderAll(); toast('Moved to Owned');
 }
 
+function moveWishlistToPreorder(id){
+  const w=DATA.wishlist.find(r=>r.id===id); if(!w)return;
+  const newId=DATA.preorders.reduce((m,r)=>Math.max(m,r.id||0),0)+1;
+  DATA.preorders.push({id:newId,Title:w.Title,Character:w.Character||'',Brand:w.Brand||'',
+    Type:w.Type||'',Scale:w.Scale||null,'Release Date':w['Release Date']||'',
+    'Best Price':w['Best Price']||null,'Est. Shipping':w['Est. Shipping']||null,
+    'Landed Cost':w['Landed Cost']||null,Site:w.Site||''});
+  const wImg=IMGS[imgKey('wishlist',id)];
+  if(wImg){IMGS[imgKey('preorders',newId)]=wImg;delete IMGS[imgKey('wishlist',id)];}
+  DATA.wishlist=DATA.wishlist.filter(r=>r.id!==id);
+  persist(); persistImgs(); renderAll(); toast('Moved to Pre-orders');
+}
+
+function moveWishlistToOwned(id){
+  const w=DATA.wishlist.find(r=>r.id===id); if(!w)return;
+  const newId=DATA.owned.reduce((m,r)=>Math.max(m,r.id||0),0)+1;
+  DATA.owned.push({id:newId,Title:w.Title,Character:w.Character||'',Brand:w.Brand||'',
+    Type:w.Type||'',Scale:w.Scale||null,'Release Date':w['Release Date']||'',
+    Price:w['Best Price']||null,Shipping:w['Est. Shipping']||null,
+    'Landed Cost':w['Landed Cost']||null,Site:w.Site||'',
+    'Month Paid':new Date().toISOString().slice(0,7)+'-01'});
+  const wImg=IMGS[imgKey('wishlist',id)];
+  if(wImg){IMGS[imgKey('owned',newId)]=wImg;delete IMGS[imgKey('wishlist',id)];}
+  DATA.wishlist=DATA.wishlist.filter(r=>r.id!==id);
+  persist(); persistImgs(); renderAll(); toast('Moved to Owned');
+}
+
 // ====== EXPORT / IMPORT ======
 function resetAll(){
   if(!confirm('Clear all data and images? This cannot be undone.\n\nUse Export first if you want a backup.')) return;
   localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(IMAGES_KEY);
-  DATA={owned:[],preorders:[],hunts:{}}; IMGS={};
+  DATA={owned:[],preorders:[],hunts:{},wishlist:[]}; IMGS={};
   ACTIVE_HUNT=null; CURRENT_TAB='owned';
   rebuildTabs(); switchTab('owned');
   renderAll(); toast('Reset complete — import a backup to restore');
 }
 function exportJSON(){
-  const blob=new Blob([JSON.stringify({data:DATA,images:IMGS},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({version:APP_VERSION,data:DATA,images:IMGS},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='figure-tracker-'+new Date().toISOString().slice(0,10)+'.json';
@@ -1026,9 +1140,10 @@ function importJSON(e){
       if(d.data?.owned){
         DATA=d.data;
         if(!DATA.hunts) DATA.hunts={};
+        if(!DATA.wishlist) DATA.wishlist=[];  // backward compat with pre-1.0.0 exports
         IMGS=d.images||{};
       }
-      else if(d.owned){DATA={owned:d.owned,preorders:d.preorders||[],hunts:d.hunts||{}};IMGS={};}
+      else if(d.owned){DATA={owned:d.owned,preorders:d.preorders||[],hunts:d.hunts||{},wishlist:d.wishlist||[]};IMGS={};}
       else{toast('Invalid file','var(--accent)');return;}
       ACTIVE_HUNT=null;
       const slugs=Object.keys(DATA.hunts);
@@ -1105,6 +1220,7 @@ function closeWelcome(){
 }
 
 // ====== INIT ======
+document.getElementById('app-version').textContent=APP_VERSION;
 if(!hydrate()){
   seedFromSeedFile();
 }
