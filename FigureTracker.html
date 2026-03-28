@@ -332,7 +332,7 @@ function thumbHTML(tab,id,title){
   const img=getImg(tab,id);
   const t=esc(title);
   return img
-    ? `<img class="thumb" src="${img}" alt="" title="${t}" onclick="openLightbox('${esc(tab)}',${id},'${t}')">`
+    ? `<img class="thumb" src="${img}" alt="" title="${t}" data-title="${t}" onclick="openLightbox('${esc(tab)}',${id},this.dataset.title)">`
     : `<div class="thumb-placeholder" title="Add image" onclick="openModal('${esc(tab)}',${id},true)">📷</div>`;
 }
 
@@ -533,7 +533,7 @@ function renderOwned(){
     document.getElementById('owned-gallery').innerHTML=rows.map(r=>{
       const img=getImg('owned',r.id);
       return `<div class="fig-card">
-        ${img?`<img class="fig-card-img" src="${img}" alt="" onclick="openLightbox('owned',${r.id},'${esc(r.Title)}')">`:`<div class="fig-card-img-placeholder">🗿</div>`}
+        ${img?`<img class="fig-card-img" src="${img}" alt="" data-title="${esc(r.Title)}" onclick="openLightbox('owned',${r.id},this.dataset.title)">`:`<div class="fig-card-img-placeholder">🗿</div>`}
         <div class="fig-card-body">
           <div class="fig-card-title" title="${esc(r.Title)}">${esc(r.Title)}</div>
           <div class="fig-card-meta">${typeBadge(r.Type)}<span class="fig-card-price">${fmt(r['Landed Cost'])}</span></div>
