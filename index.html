@@ -141,6 +141,20 @@ tr.hunt-auto td{opacity:0.85}
 
 @media(max-width:900px){.analytics-grid{grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.gallery{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
 @media(max-width:600px){.analytics-grid{grid-template-columns:1fr}.controls{flex-direction:column}.search{min-width:auto;width:100%}.header-stats{gap:14px}.form-grid{grid-template-columns:1fr}}
+
+/* Welcome Dialog */
+.welcome-modal{max-width:700px;padding:32px 28px}
+.welcome-header{text-align:center;margin-bottom:24px}
+.welcome-header h2{font-size:24px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+.welcome-header p{color:var(--text2);font-size:14px;line-height:1.5}
+.welcome-sections{display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+.welcome-section{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;gap:14px;align-items:flex-start}
+.welcome-section-icon{font-size:22px;line-height:1;flex-shrink:0;margin-top:1px}
+.welcome-section-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px}
+.welcome-section-body{font-size:12px;color:var(--text2);line-height:1.55}
+.welcome-section-body strong{color:var(--text);font-weight:600}
+.welcome-footer{text-align:center}
+.welcome-footer .btn{padding:11px 32px;font-size:14px}
 </style>
 </head>
 <body>
@@ -287,6 +301,63 @@ tr.hunt-auto td{opacity:0.85}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- WELCOME DIALOG -->
+<div class="modal-bg" id="welcome-bg">
+  <div class="modal welcome-modal">
+    <div class="welcome-header">
+      <h2>Welcome to Figure Tracker</h2>
+      <p>Your personal anime figure collection manager — track what you own, what's on order, and plan your next finds.<br>Here's a quick tour to get you started.</p>
+    </div>
+    <div class="welcome-sections">
+      <div class="welcome-section">
+        <div class="welcome-section-icon">🗃️</div>
+        <div>
+          <div class="welcome-section-title">Owned Tab</div>
+          <div class="welcome-section-body">Log every figure in your collection. Record the <strong>title, character, brand, type, scale, release date, landed cost</strong> (price + shipping), purchase site, and the month you paid. Switch between <strong>Table</strong> and <strong>Gallery</strong> views. Filter by type, brand, or site, and click any column header to sort.</div>
+        </div>
+      </div>
+      <div class="welcome-section">
+        <div class="welcome-section-icon">📦</div>
+        <div>
+          <div class="welcome-section-title">Pre-orders Tab</div>
+          <div class="welcome-section-body">Track figures you've ordered but haven't received yet. Store the <strong>best price found, estimated shipping, and expected release date</strong>. When a figure arrives, click <strong>✓ Recv</strong> to move it straight to your Owned collection — it auto-fills all the details.</div>
+        </div>
+      </div>
+      <div class="welcome-section">
+        <div class="welcome-section-icon">🎯</div>
+        <div>
+          <div class="welcome-section-title">Character Hunts</div>
+          <div class="welcome-section-body">Click the <strong>+</strong> button next to the tab bar and type a character name to create a Hunt. A dedicated tab appears showing <em>every</em> figure of that character across your Owned, Pre-orders, and a personal <strong>Wishlist</strong>. Use the progress bar to see how complete your collection is. Add wished items and promote them to Pre-order or Owned whenever you're ready to buy.</div>
+        </div>
+      </div>
+      <div class="welcome-section">
+        <div class="welcome-section-icon">📊</div>
+        <div>
+          <div class="welcome-section-title">Analytics Tab</div>
+          <div class="welcome-section-body">Get a live dashboard of your spending. See <strong>total figures owned, total spend, average landed cost</strong>, and pending pre-order value at a glance. Charts show monthly spend &amp; cumulative totals, breakdown by figure type, purchase site, top brands by spend, and a price distribution histogram.</div>
+        </div>
+      </div>
+      <div class="welcome-section">
+        <div class="welcome-section-icon">💾</div>
+        <div>
+          <div class="welcome-section-title">Export &amp; Import</div>
+          <div class="welcome-section-body">All data is saved in your browser's local storage — nothing is sent to a server. Use <strong>Export</strong> (in the Owned tab toolbar) to download a full backup as a <code>.json</code> file including all images. Use <strong>Import</strong> to restore from that file on any device or browser. Export regularly to keep a backup of your collection.</div>
+        </div>
+      </div>
+      <div class="welcome-section">
+        <div class="welcome-section-icon">🖼️</div>
+        <div>
+          <div class="welcome-section-title">Adding Images</div>
+          <div class="welcome-section-body">When adding or editing a figure, paste an <strong>image URL</strong> or <strong>upload a file</strong> from your device. Uploaded images are automatically resized and stored locally. Click any thumbnail to open a full-size lightbox view.</div>
+        </div>
+      </div>
+    </div>
+    <div class="welcome-footer">
+      <button class="btn btn-primary" onclick="closeWelcome()">Get Started!</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ====== STORAGE ======
@@ -1028,12 +1099,20 @@ function toast(msg,bg){
 
 Chart.defaults.color='#a1a1aa';Chart.defaults.borderColor='#2d3142';
 
+// ====== WELCOME DIALOG ======
+function closeWelcome(){
+  document.getElementById('welcome-bg').classList.remove('show');
+}
+
 // ====== INIT ======
 if(!hydrate()){
   seedFromSeedFile();
 }
 rebuildTabs();
 renderAll();
+if(DATA.owned.length===0 && DATA.preorders.length===0){
+  document.getElementById('welcome-bg').classList.add('show');
+}
 </script>
 </body>
 </html>
