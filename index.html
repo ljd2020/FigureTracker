@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f1117;--card:#1a1d27;--card2:#232733;--border:#2d3142;--text:#e4e4e7;--text2:#a1a1aa;--accent:#f0506e;--accent2:#ff7eb3;--green:#22c55e;--blue:#3b82f6;--yellow:#eab308;--orange:#f97316}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+.header{background:linear-gradient(135deg,#1a1d27 0%,#232733 100%);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:22px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header-stats{display:flex;gap:24px}
+.stat{text-align:right}
+.stat-val{font-size:20px;font-weight:700;color:var(--accent)}
+.stat-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px}
+
+.view-toggle{display:flex;gap:4px;background:var(--card2);border-radius:8px;padding:3px}
+.vbtn{background:transparent;border:none;color:var(--text2);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:13px;transition:all .15s}
+.vbtn.active{background:var(--card);color:var(--text)}
+
+.tabs{display:flex;background:var(--card);border-bottom:2px solid var(--border);padding:0 24px;overflow-x:auto}
+.tab{padding:12px 20px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-close{opacity:0.4;font-size:15px;line-height:1;padding:0 2px;border-radius:3px;transition:all .15s}
+.tab-close:hover{opacity:1;color:var(--accent);background:rgba(240,80,110,0.15)}
+.tab-add{color:var(--green)!important;font-size:14px;gap:4px}
+.tab-add:hover{color:var(--text)!important}
+
+.controls{display:flex;gap:10px;padding:14px 24px;flex-wrap:wrap;align-items:center}
+.search{background:var(--card2);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;font-size:13px;min-width:220px}
+.search:focus{outline:none;border-color:var(--accent)}
+select.filter{background:var(--card2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-size:13px}
+.btn{padding:8px 14px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#d93d5c}
+.btn-sm{padding:4px 9px;font-size:11px;border-radius:6px}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--card2);color:var(--text)}
+.btn-danger{background:#dc2626;color:#fff}
+.btn-danger:hover{background:#b91c1c}
+.spacer{flex:1}
+
+.table-wrap{padding:0 24px 24px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--card2);padding:9px 11px;text-align:left;font-weight:600;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap}
+th:hover{color:var(--text)}
+th.sorted .sort-icon{color:var(--accent)}
+th .sort-icon{margin-left:3px;opacity:0.5}
+td{padding:8px 11px;border-bottom:1px solid var(--border);max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+tr:hover td{background:rgba(240,80,110,0.04)}
+.badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600}
+.badge-Scale{background:rgba(59,130,246,0.15);color:var(--blue)}
+.badge-Prize{background:rgba(34,197,94,0.15);color:var(--green)}
+.badge-Nendoroid{background:rgba(249,115,22,0.15);color:var(--orange)}
+.badge-Bunny{background:rgba(240,80,110,0.15);color:var(--accent)}
+.badge-Model{background:rgba(234,179,8,0.15);color:var(--yellow)}
+.badge-Mini{background:rgba(161,161,170,0.15);color:var(--text2)}
+.badge-R{background:rgba(34,197,94,0.15);color:var(--green)}
+.badge-O{background:rgba(59,130,246,0.15);color:var(--blue)}
+.badge-B{background:rgba(234,179,8,0.15);color:var(--yellow)}
+.badge-W{background:rgba(161,161,170,0.15);color:var(--text2)}
+tr.hunt-auto td{opacity:0.85}
+.money{font-variant-numeric:tabular-nums;font-weight:500}
+
+.thumb-cell{width:60px;padding:4px 8px!important}
+.thumb{width:52px;height:52px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--border);transition:transform .15s,box-shadow .15s}
+.thumb:hover{transform:scale(1.08);box-shadow:0 4px 16px rgba(0,0,0,0.5)}
+.thumb-placeholder{width:52px;height:52px;border-radius:6px;background:var(--card2);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px;transition:background .15s}
+.thumb-placeholder:hover{background:var(--border)}
+
+.gallery{display:none;padding:16px 24px 24px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.gallery.show{display:grid}
+.fig-card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:transform .15s,box-shadow .15s}
+.fig-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.4)}
+.fig-card-img{width:100%;aspect-ratio:1;object-fit:cover;background:var(--card2);cursor:pointer}
+.fig-card-img-placeholder{width:100%;aspect-ratio:1;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:40px}
+.fig-card-body{padding:10px}
+.fig-card-title{font-size:12px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:6px}
+.fig-card-meta{display:flex;justify-content:space-between;align-items:center;gap:4px}
+.fig-card-price{font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap}
+.fig-card-actions{display:flex;gap:4px;padding:0 10px 10px}
+
+.lightbox{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.88);display:none;align-items:center;justify-content:center;z-index:300}
+.lightbox.show{display:flex}
+.lightbox-inner{position:relative;max-width:90vw;max-height:90vh}
+.lightbox img{max-width:90vw;max-height:82vh;object-fit:contain;border-radius:8px;display:block}
+.lightbox-title{text-align:center;font-size:13px;color:var(--text2);margin-top:10px;max-width:80vw}
+.lightbox-close{position:absolute;top:-40px;right:0;background:none;border:none;color:var(--text2);font-size:26px;cursor:pointer;line-height:1}
+
+.modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:200}
+.modal-bg.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;width:90%;max-width:580px;max-height:92vh;overflow-y:auto}
+.modal h2{font-size:18px;margin-bottom:16px;color:var(--accent)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group.full{grid-column:1/-1}
+.form-group label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px}
+.form-group input,.form-group select{background:var(--card2);border:1px solid var(--border);color:var(--text);padding:7px 11px;border-radius:8px;font-size:13px}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--accent)}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+
+.img-edit{grid-column:1/-1;display:flex;gap:16px;align-items:flex-start;padding:12px;background:var(--card2);border-radius:10px;border:1px solid var(--border)}
+.img-preview{width:90px;height:90px;object-fit:cover;border-radius:8px;flex-shrink:0;background:var(--bg)}
+.img-preview-ph{width:90px;height:90px;border-radius:8px;background:var(--bg);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;color:var(--text2)}
+.img-edit-right{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
+.img-edit-right label{font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.img-url-input{background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px;width:100%}
+.img-url-input:focus{outline:none;border-color:var(--accent)}
+.img-edit-or{text-align:center;font-size:11px;color:var(--text2)}
+.upload-btn{background:var(--card);border:1px solid var(--border);color:var(--text2);padding:6px 10px;border-radius:6px;font-size:12px;cursor:pointer;text-align:center;display:block}
+.upload-btn:hover{background:var(--border);color:var(--text)}
+
+.analytics{padding:24px;display:none}
+.analytics.show{display:block}
+.analytics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px}
+.kpi-val{font-size:26px;font-weight:700}
+.kpi-label{font-size:12px;color:var(--text2);margin-top:4px}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px}
+.chart-card h3{font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text2)}
+.chart-card.full{grid-column:1/-1}
+
+.hunt-progress{display:flex;align-items:center;gap:12px;padding:8px 24px;background:var(--card);border-bottom:1px solid var(--border)}
+.hunt-bar{flex:1;height:8px;background:var(--card2);border-radius:4px;overflow:hidden}
+.hunt-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;transition:width .5s}
+.hunt-stat{font-size:12px;color:var(--text2);white-space:nowrap}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;transform:translateY(100px);opacity:0;transition:all .3s;z-index:400}
+.toast.show{transform:translateY(0);opacity:1}
+.empty{text-align:center;padding:48px 24px;color:var(--text2);font-size:14px}
+
+.hunt-name-dialog{display:flex;flex-direction:column;gap:12px}
+.hunt-name-dialog input{background:var(--card2);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:15px}
+.hunt-name-dialog input:focus{outline:none;border-color:var(--accent)}
+
+@media(max-width:900px){.analytics-grid{grid-template-columns:1fr 1fr}.chart-grid{grid-template-columns:1fr}.gallery{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+@media(max-width:600px){.analytics-grid{grid-template-columns:1fr}.controls{flex-direction:column}.search{min-width:auto;width:100%}.header-stats{gap:14px}.form-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Figure Tracker</h1>
+  <div class="header-stats">
+    <div class="stat"><div class="stat-val" id="h-total">0</div><div class="stat-label">Figures</div></div>
+    <div class="stat"><div class="stat-val" id="h-spent">$0</div><div class="stat-label">Total Spent</div></div>
+    <div class="stat" id="h-hunt-stat" style="display:none"><div class="stat-val" id="h-hunt-val">0/0</div><div class="stat-label" id="h-hunt-label">Hunt</div></div>
+  </div>
+</div>
+
+<div class="tabs" id="tab-bar"></div>
+
+<!-- OWNED -->
+<div id="tab-owned">
+  <div class="controls">
+    <input class="search" id="search-owned" placeholder="Search figures...">
+    <select class="filter" id="filter-type-owned"><option value="">All Types</option></select>
+    <select class="filter" id="filter-brand-owned"><option value="">All Brands</option></select>
+    <select class="filter" id="filter-site-owned"><option value="">All Sites</option></select>
+    <div class="spacer"></div>
+    <div class="view-toggle">
+      <button class="vbtn active" id="vbtn-table" onclick="setView('table')">☰ Table</button>
+      <button class="vbtn" id="vbtn-gallery" onclick="setView('gallery')">⊞ Gallery</button>
+    </div>
+    <button class="btn btn-ghost" onclick="exportJSON()">Export</button>
+    <label class="btn btn-ghost" style="cursor:pointer">Import<input type="file" accept=".json" onchange="importJSON(event)" style="display:none"></label>
+    <button class="btn btn-ghost" style="color:var(--accent);border-color:var(--accent)" onclick="resetAll()">Reset</button>
+    <button class="btn btn-primary" onclick="openModal('owned')">+ Add</button>
+  </div>
+  <div class="table-wrap" id="owned-table-wrap">
+    <table id="table-owned">
+      <thead><tr>
+        <th style="width:60px">Img</th>
+        <th data-col="Title">Title <span class="sort-icon">↕</span></th>
+        <th data-col="Character">Character <span class="sort-icon">↕</span></th>
+        <th data-col="Brand">Brand <span class="sort-icon">↕</span></th>
+        <th data-col="Type">Type <span class="sort-icon">↕</span></th>
+        <th data-col="Scale">Scale <span class="sort-icon">↕</span></th>
+        <th data-col="Release Date">Release <span class="sort-icon">↕</span></th>
+        <th data-col="Landed Cost">Landed <span class="sort-icon">↕</span></th>
+        <th data-col="Site">Site <span class="sort-icon">↕</span></th>
+        <th data-col="Month Paid">Paid <span class="sort-icon">↕</span></th>
+        <th>Actions</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="gallery" id="owned-gallery"></div>
+</div>
+
+<!-- PRE-ORDERS -->
+<div id="tab-preorders" style="display:none">
+  <div class="controls">
+    <input class="search" id="search-preorders" placeholder="Search pre-orders...">
+    <div class="spacer"></div>
+    <button class="btn btn-primary" onclick="openModal('preorders')">+ Add Pre-order</button>
+  </div>
+  <div class="table-wrap">
+    <table id="table-preorders">
+      <thead><tr>
+        <th style="width:60px">Img</th>
+        <th data-col="Title">Title <span class="sort-icon">↕</span></th>
+        <th data-col="Character">Character <span class="sort-icon">↕</span></th>
+        <th data-col="Brand">Brand <span class="sort-icon">↕</span></th>
+        <th data-col="Type">Type <span class="sort-icon">↕</span></th>
+        <th data-col="Scale">Scale <span class="sort-icon">↕</span></th>
+        <th data-col="Release Date">Release <span class="sort-icon">↕</span></th>
+        <th data-col="Best Price">Price <span class="sort-icon">↕</span></th>
+        <th data-col="Est. Shipping">Est. Ship <span class="sort-icon">↕</span></th>
+        <th data-col="Landed Cost">Landed <span class="sort-icon">↕</span></th>
+        <th data-col="Site">Site <span class="sort-icon">↕</span></th>
+        <th>Actions</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- HUNT (shared container for any active hunt) -->
+<div id="tab-hunt" style="display:none">
+  <div class="hunt-progress">
+    <div class="hunt-stat" id="hunt-recv-text">0 / 0 Received</div>
+    <div class="hunt-bar"><div class="hunt-fill" id="hunt-fill" style="width:0%"></div></div>
+    <div class="hunt-stat"><span id="hunt-spent">$0</span> spent · <span id="hunt-remaining">$0</span> remaining</div>
+  </div>
+  <div class="controls">
+    <input class="search" id="search-hunt" placeholder="Search hunt figures...">
+    <div class="spacer"></div>
+    <button class="btn btn-primary" id="hunt-add-btn" onclick="openModal(activeHuntTab())">+ Add to Hunt</button>
+  </div>
+  <div class="table-wrap">
+    <table id="table-hunt">
+      <thead><tr>
+        <th style="width:60px">Img</th>
+        <th data-col="Title">Title <span class="sort-icon">↕</span></th>
+        <th data-col="Character">Character <span class="sort-icon">↕</span></th>
+        <th data-col="Brand">Brand <span class="sort-icon">↕</span></th>
+        <th data-col="Type">Type <span class="sort-icon">↕</span></th>
+        <th data-col="Scale">Scale <span class="sort-icon">↕</span></th>
+        <th data-col="Release Date">Release <span class="sort-icon">↕</span></th>
+        <th data-col="Best Price">Price <span class="sort-icon">↕</span></th>
+        <th data-col="Landed Cost">Landed <span class="sort-icon">↕</span></th>
+        <th data-col="Site">Site <span class="sort-icon">↕</span></th>
+        <th data-col="Status">Status <span class="sort-icon">↕</span></th>
+        <th>Actions</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ANALYTICS -->
+<div id="tab-analytics" class="analytics">
+  <div class="analytics-grid">
+    <div class="kpi"><div class="kpi-val" id="kpi-total" style="color:var(--accent)">0</div><div class="kpi-label">Total Figures Owned</div></div>
+    <div class="kpi"><div class="kpi-val" id="kpi-spent" style="color:var(--green)">$0</div><div class="kpi-label">Total Collection Spend</div></div>
+    <div class="kpi"><div class="kpi-val" id="kpi-avg" style="color:var(--blue)">$0</div><div class="kpi-label">Avg Landed Cost</div></div>
+    <div class="kpi"><div class="kpi-val" id="kpi-pending" style="color:var(--yellow)">$0</div><div class="kpi-label">Pre-order Pending</div></div>
+  </div>
+  <div class="chart-grid">
+    <div class="chart-card full"><h3>Monthly Spend &amp; Cumulative</h3><canvas id="chart-monthly"></canvas></div>
+    <div class="chart-card"><h3>By Figure Type</h3><canvas id="chart-type"></canvas></div>
+    <div class="chart-card"><h3>By Purchase Site</h3><canvas id="chart-site"></canvas></div>
+    <div class="chart-card"><h3>Top Brands by Spend</h3><canvas id="chart-brand"></canvas></div>
+    <div class="chart-card"><h3>Price Distribution</h3><canvas id="chart-dist"></canvas></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal"></div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <div class="lightbox-inner" onclick="event.stopPropagation()">
+    <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+    <img id="lightbox-img" src="" alt="">
+    <div class="lightbox-title" id="lightbox-title"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ====== STORAGE ======
+const STORAGE_KEY = 'figureTracker_v2';
+const IMAGES_KEY  = 'figureImages_v2';
+let DATA   = {owned:[], preorders:[], hunts:{}};
+// hunts: { "slug": { character: "Name", wished: [{id, Title, ...}] } }
+let IMGS   = {};
+let SORT   = {owned:{col:null,asc:true}, preorders:{col:null,asc:true}, hunt:{col:null,asc:true}};
+let VIEW   = 'table';
+let PENDING_IMG = null;
+let CURRENT_TAB = 'owned';
+let ACTIVE_HUNT = null; // slug of current hunt being viewed
+
+function imgKey(tab,id){ return tab+'_'+id }
+function getImg(tab,id){ return IMGS[imgKey(tab,id)]||null }
+
+function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA)) }
+function persistImgs(){ localStorage.setItem(IMAGES_KEY, JSON.stringify(IMGS)) }
+function hydrate(){
+  const d=localStorage.getItem(STORAGE_KEY), im=localStorage.getItem(IMAGES_KEY);
+  if(d) DATA=JSON.parse(d);
+  if(im) IMGS=JSON.parse(im);
+  // Ensure hunts exists
+  if(!DATA.hunts) DATA.hunts={};
+  return !!d;
+}
+
+function seedFromSeedFile(){
+  persist(); persistImgs();
+}
+
+// ====== HELPERS ======
+function scaleDisp(v){ if(!v||isNaN(parseFloat(v)))return '—'; return '1/'+Math.round(1/parseFloat(v)) }
+function scaleFromStr(s){ if(!s)return null; s=s.replace(/\s/g,''); if(s.startsWith('1/')){const n=parseInt(s.slice(2));return isNaN(n)?null:1/n;} const n=parseFloat(s);return isNaN(n)?null:n; }
+function fmt(v){ if(v==null||isNaN(parseFloat(v)))return '—'; return '$'+parseFloat(v).toFixed(2) }
+function fmtDate(d){ if(!d||d==='NaT'||d==='None'||d==='nan')return '—'; if(d==='Released')return d; try{const dt=new Date(d);return isNaN(dt)?d:dt.toLocaleDateString('en-US',{year:'numeric',month:'short'})}catch{return d} }
+function shortDate(d){ if(!d||d==='NaT'||d==='None'||d==='nan'||d==='Released')return ''; try{const dt=new Date(d);return isNaN(dt)?'':dt.toISOString().slice(0,7)}catch{return ''} }
+function esc(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'' }
+function typeBadge(t){ return t?`<span class="badge badge-${t}">${t}</span>`:'' }
+function statusLabel(s){ return {R:'Received',O:'Ordered',B:'Bid',W:'Wished'}[s]||s||'—' }
+
+function thumbHTML(tab,id,title){
+  const img=getImg(tab,id);
+  const t=esc(title);
+  return img
+    ? `<img class="thumb" src="${img}" alt="" title="${t}" onclick="openLightbox('${esc(tab)}',${id},'${t}')">`
+    : `<div class="thumb-placeholder" title="Add image" onclick="openModal('${esc(tab)}',${id},true)">📷</div>`;
+}
+
+// ====== HUNT HELPERS ======
+function huntSlug(name){ return name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') }
+function isHuntTab(tab){ return tab.startsWith('hunt:') }
+function huntSlugFrom(tab){ return tab.split(':').slice(1).join(':') }
+function activeHuntTab(){ return ACTIVE_HUNT ? 'hunt:'+ACTIVE_HUNT : null }
+
+// Get the data array for a tab (handles hunt tabs)
+function getDataArr(tab){
+  if(isHuntTab(tab)){
+    const slug=huntSlugFrom(tab);
+    return DATA.hunts[slug]?.wished || [];
+  }
+  return DATA[tab] || [];
+}
+function setDataArr(tab, arr){
+  if(isHuntTab(tab)){
+    const slug=huntSlugFrom(tab);
+    if(DATA.hunts[slug]) DATA.hunts[slug].wished=arr;
+  } else {
+    DATA[tab]=arr;
+  }
+}
+
+// Image key tab prefix for hunt wished items
+function imgTabFor(tab){
+  // For hunt wished items, use "hunt-slug" as the tab prefix in image keys
+  if(isHuntTab(tab)) return 'hunt-'+huntSlugFrom(tab);
+  return tab;
+}
+
+// ====== TABS ======
+function rebuildTabs(){
+  const bar=document.getElementById('tab-bar');
+  let html='';
+  html+=`<div class="tab${CURRENT_TAB==='owned'?' active':''}" data-tab="owned">Owned</div>`;
+  html+=`<div class="tab${CURRENT_TAB==='preorders'?' active':''}" data-tab="preorders">Pre-orders</div>`;
+  for(const slug of Object.keys(DATA.hunts)){
+    const h=DATA.hunts[slug];
+    const tabKey='hunt:'+slug;
+    html+=`<div class="tab${CURRENT_TAB===tabKey?' active':''}" data-tab="${esc(tabKey)}">${esc(h.character)} Hunt <span class="tab-close" data-slug="${esc(slug)}">×</span></div>`;
+  }
+  html+=`<div class="tab tab-add" data-tab="__add_hunt">+ Hunt</div>`;
+  html+=`<div class="tab${CURRENT_TAB==='analytics'?' active':''}" data-tab="analytics">Analytics</div>`;
+  bar.innerHTML=html;
+
+  // Re-attach sort listeners for hunt table
+  document.querySelectorAll('#table-hunt th[data-col]').forEach(th=>{
+    th.removeEventListener('click', huntSortHandler);
+    th.addEventListener('click', huntSortHandler);
+  });
+}
+
+function huntSortHandler(e){
+  const th=e.currentTarget;
+  const col=th.dataset.col;
+  if(SORT.hunt.col===col) SORT.hunt.asc=!SORT.hunt.asc; else SORT.hunt={col,asc:true};
+  th.closest('thead').querySelectorAll('th').forEach(x=>{x.classList.remove('sorted');if(x.querySelector('.sort-icon'))x.querySelector('.sort-icon').textContent='↕';});
+  th.classList.add('sorted'); th.querySelector('.sort-icon').textContent=SORT.hunt.asc?'↑':'↓';
+  renderHunt();
+}
+
+// Tab click via event delegation
+document.getElementById('tab-bar').addEventListener('click',e=>{
+  // Check if close button was clicked
+  const closeBtn=e.target.closest('.tab-close');
+  if(closeBtn){
+    e.stopPropagation();
+    const slug=closeBtn.dataset.slug;
+    removeHunt(slug);
+    return;
+  }
+  const tab=e.target.closest('.tab');
+  if(!tab) return;
+  const tabKey=tab.dataset.tab;
+  if(tabKey==='__add_hunt'){ showAddHuntDialog(); return; }
+  switchTab(tabKey);
+});
+
+function switchTab(tab){
+  CURRENT_TAB=tab;
+  // Update active tab highlight
+  document.querySelectorAll('#tab-bar .tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
+  // Hide all content panels
+  ['owned','preorders','hunt','analytics'].forEach(id=>{
+    document.getElementById('tab-'+id).style.display='none';
+  });
+  document.getElementById('tab-analytics').classList.remove('show');
+
+  if(tab==='owned'){
+    document.getElementById('tab-owned').style.display='';
+  } else if(tab==='preorders'){
+    document.getElementById('tab-preorders').style.display='';
+  } else if(isHuntTab(tab)){
+    ACTIVE_HUNT=huntSlugFrom(tab);
+    document.getElementById('tab-hunt').style.display='';
+    const charName=DATA.hunts[ACTIVE_HUNT]?.character||'';
+    document.getElementById('search-hunt').placeholder='Search '+charName+' figures...';
+    renderHunt();
+  } else if(tab==='analytics'){
+    document.getElementById('tab-analytics').style.display='';
+    document.getElementById('tab-analytics').classList.add('show');
+    renderAnalytics();
+  }
+  updateHeader();
+}
+
+// ====== HUNT MANAGEMENT ======
+function showAddHuntDialog(){
+  const h=`<h2>New Character Hunt</h2>
+    <div class="hunt-name-dialog">
+      <p style="font-size:13px;color:var(--text2)">Enter the character name to track across your collection. Figures from Owned and Pre-orders with a matching Character field will automatically appear in the hunt.</p>
+      <div class="form-group"><label>Character Name</label><input id="new-hunt-name" placeholder="e.g. Zero Two, Rem, Megumin..." autofocus></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddHunt()">Create Hunt</button>
+    </div>`;
+  document.getElementById('modal').innerHTML=h;
+  document.getElementById('modal-bg').classList.add('show');
+  setTimeout(()=>document.getElementById('new-hunt-name')?.focus(),50);
+  // Allow Enter key
+  document.getElementById('new-hunt-name').addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();confirmAddHunt();}
+  });
+}
+
+function confirmAddHunt(){
+  const input=document.getElementById('new-hunt-name');
+  const name=(input?.value||'').trim();
+  if(!name){toast('Enter a character name','var(--accent)');return;}
+  const slug=huntSlug(name);
+  if(!slug){toast('Invalid name','var(--accent)');return;}
+  if(DATA.hunts[slug]){toast('Hunt already exists','var(--accent)');return;}
+  DATA.hunts[slug]={character:name, wished:[]};
+  persist();
+  closeModal();
+  rebuildTabs();
+  switchTab('hunt:'+slug);
+  toast(name+' Hunt created');
+}
+
+function removeHunt(slug){
+  const hunt=DATA.hunts[slug];
+  if(!hunt) return;
+  if(!confirm('Remove the "'+hunt.character+' Hunt"?\n\nThis will delete any wished entries. Owned and pre-ordered figures are not affected.')) return;
+  // Remove wished item images
+  for(const w of hunt.wished){
+    delete IMGS[imgKey('hunt-'+slug,w.id)];
+  }
+  delete DATA.hunts[slug];
+  persist(); persistImgs();
+  // If we were viewing this hunt, switch to owned
+  if(ACTIVE_HUNT===slug){
+    ACTIVE_HUNT=null;
+    switchTab('owned');
+  }
+  rebuildTabs();
+  updateHeader();
+  toast(hunt.character+' Hunt removed');
+}
+
+// ====== VIEW TOGGLE ======
+function setView(v){
+  VIEW=v;
+  document.getElementById('vbtn-table').classList.toggle('active',v==='table');
+  document.getElementById('vbtn-gallery').classList.toggle('active',v==='gallery');
+  document.getElementById('owned-table-wrap').style.display=v==='table'?'':'none';
+  document.getElementById('owned-gallery').classList.toggle('show',v==='gallery');
+  renderOwned();
+}
+
+// ====== RENDER ======
+function sortRows(rows,sortKey){
+  const s=SORT[sortKey]; if(!s||!s.col)return rows;
+  return [...rows].sort((a,b)=>{
+    let va=a[s.col],vb=b[s.col];
+    if(typeof va==='number'&&typeof vb==='number') return s.asc?va-vb:vb-va;
+    return s.asc?String(va||'').localeCompare(String(vb||'')):String(vb||'').localeCompare(String(va||''));
+  });
+}
+
+function renderOwned(){
+  let rows=[...DATA.owned];
+  const q=document.getElementById('search-owned').value.toLowerCase();
+  const ft=document.getElementById('filter-type-owned').value;
+  const fb=document.getElementById('filter-brand-owned').value;
+  const fs=document.getElementById('filter-site-owned').value;
+  if(q) rows=rows.filter(r=>(r.Title||'').toLowerCase().includes(q)||(r.Brand||'').toLowerCase().includes(q)||(r.Character||'').toLowerCase().includes(q));
+  if(ft) rows=rows.filter(r=>r.Type===ft);
+  if(fb) rows=rows.filter(r=>r.Brand===fb);
+  if(fs) rows=rows.filter(r=>(r.Site||'').replace(/\n/g,' ')===fs);
+  rows=sortRows(rows,'owned');
+
+  if(VIEW==='gallery'){
+    document.getElementById('owned-gallery').innerHTML=rows.map(r=>{
+      const img=getImg('owned',r.id);
+      return `<div class="fig-card">
+        ${img?`<img class="fig-card-img" src="${img}" alt="" onclick="openLightbox('owned',${r.id},'${esc(r.Title)}')">`:`<div class="fig-card-img-placeholder">🗿</div>`}
+        <div class="fig-card-body">
+          <div class="fig-card-title" title="${esc(r.Title)}">${esc(r.Title)}</div>
+          <div class="fig-card-meta">${typeBadge(r.Type)}<span class="fig-card-price">${fmt(r['Landed Cost'])}</span></div>
+        </div>
+        <div class="fig-card-actions">
+          <button class="btn btn-sm btn-ghost" style="flex:1" onclick="openModal('owned',${r.id})">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="del('owned',${r.id})">×</button>
+        </div>
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  document.querySelector('#table-owned tbody').innerHTML=rows.length?rows.map(r=>`<tr>
+    <td class="thumb-cell">${thumbHTML('owned',r.id,r.Title)}</td>
+    <td title="${esc(r.Title)}">${esc(r.Title)}</td>
+    <td>${esc(r.Character||'')}</td>
+    <td>${esc(r.Brand)}</td>
+    <td>${typeBadge(r.Type)}</td>
+    <td>${scaleDisp(r.Scale)}</td>
+    <td>${fmtDate(r['Release Date'])}</td>
+    <td class="money" style="font-weight:700">${fmt(r['Landed Cost'])}</td>
+    <td>${esc((r.Site||'').replace(/\n/g,' '))}</td>
+    <td>${fmtDate(r['Month Paid'])}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm btn-ghost" onclick="openModal('owned',${r.id})">Edit</button>
+      <button class="btn btn-sm btn-danger" onclick="del('owned',${r.id})">×</button>
+    </td>
+  </tr>`).join(''):'<tr><td colspan="11"><div class="empty">No figures found</div></td></tr>';
+  populateFilters();
+}
+
+function renderPreorders(){
+  let rows=sortRows([...DATA.preorders].filter(r=>{
+    const q=document.getElementById('search-preorders').value.toLowerCase();
+    return !q||(r.Title||'').toLowerCase().includes(q);
+  }),'preorders');
+  document.querySelector('#table-preorders tbody').innerHTML=rows.length?rows.map(r=>`<tr>
+    <td class="thumb-cell">${thumbHTML('preorders',r.id,r.Title)}</td>
+    <td title="${esc(r.Title)}">${esc(r.Title)}</td>
+    <td>${esc(r.Character||'')}</td>
+    <td>${esc(r.Brand)}</td>
+    <td>${typeBadge(r.Type)}</td>
+    <td>${scaleDisp(r.Scale)}</td>
+    <td>${fmtDate(r['Release Date'])}</td>
+    <td class="money">${fmt(r['Best Price'])}</td>
+    <td class="money">${fmt(r['Est. Shipping'])}</td>
+    <td class="money" style="font-weight:700">${fmt(r['Landed Cost'])}</td>
+    <td>${esc(r.Site)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-sm btn-ghost" onclick="openModal('preorders',${r.id})">Edit</button>
+      <button class="btn btn-sm btn-ghost" onclick="moveToOwned(${r.id})">✓ Recv</button>
+      <button class="btn btn-sm btn-danger" onclick="del('preorders',${r.id})">×</button>
+    </td>
+  </tr>`).join(''):'<tr><td colspan="12"><div class="empty">No pre-orders</div></td></tr>';
+}
+
+function renderHunt(){
+  if(!ACTIVE_HUNT||!DATA.hunts[ACTIVE_HUNT]) return;
+  const hunt=DATA.hunts[ACTIVE_HUNT];
+  const charLower=hunt.character.toLowerCase();
+  const q=(document.getElementById('search-hunt')?.value||'').toLowerCase();
+  const huntImgTab='hunt-'+ACTIVE_HUNT;
+  const isMatch=r=>(r.Character||'').toLowerCase().includes(charLower);
+
+  // Build combined rows
+  const ownedRows=DATA.owned.filter(isMatch).map(r=>({
+    ...r, _src:'owned', 'Best Price':r.Price, 'Est. Shipping':r.Shipping, Status:'R'
+  }));
+  const preorderRows=DATA.preorders.filter(isMatch).map(r=>({
+    ...r, _src:'preorders', Status:'O'
+  }));
+  const wishedRows=hunt.wished.map(r=>({
+    ...r, _src:'wished', Status:'W'
+  }));
+  let rows=[...ownedRows,...preorderRows,...wishedRows];
+  if(q) rows=rows.filter(r=>
+    (r.Title||'').toLowerCase().includes(q)||
+    (r.Brand||'').toLowerCase().includes(q)||
+    (r.Character||'').toLowerCase().includes(q)
+  );
+  rows=sortRows(rows,'hunt');
+
+  // Stats
+  const recv=DATA.owned.filter(isMatch).length;
+  const total=recv+DATA.preorders.filter(isMatch).length+hunt.wished.length;
+  const spent=DATA.owned.filter(isMatch).reduce((s,r)=>s+(r['Landed Cost']||0),0);
+  const remain=DATA.preorders.filter(isMatch).reduce((s,r)=>s+(r['Landed Cost']||0),0)
+    +hunt.wished.reduce((s,r)=>s+(r['Best Price']||0),0);
+
+  document.getElementById('hunt-recv-text').textContent=`${recv} / ${total} Received`;
+  document.getElementById('hunt-fill').style.width=total?(recv/total*100)+'%':'0%';
+  document.getElementById('hunt-spent').textContent='$'+spent.toFixed(0);
+  document.getElementById('hunt-remaining').textContent='$'+remain.toFixed(0);
+
+  const huntTab='hunt:'+ACTIVE_HUNT;
+  document.querySelector('#table-hunt tbody').innerHTML=rows.length?rows.map(r=>{
+    const src=r._src;
+    const imgTab=src==='wished'?huntImgTab:src;
+    let actions='';
+    if(src==='wished'){
+      actions=`<button class="btn btn-sm btn-ghost" onclick="moveWishedToPreorder('${esc(ACTIVE_HUNT)}',${r.id})">→ Pre-order</button>
+        <button class="btn btn-sm btn-ghost" onclick="moveWishedToOwned('${esc(ACTIVE_HUNT)}',${r.id})">→ Owned</button>
+        <button class="btn btn-sm btn-ghost" onclick="openModal('${esc(huntTab)}',${r.id})">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="del('${esc(huntTab)}',${r.id})">×</button>`;
+    } else if(src==='preorders'){
+      actions=`<span style="font-size:0.75rem;opacity:0.6">via Pre-orders</span>`;
+    } else {
+      actions=`<span style="font-size:0.75rem;opacity:0.6">via Owned</span>`;
+    }
+    return `<tr class="${src==='wished'?'':'hunt-auto'}">
+      <td class="thumb-cell">${thumbHTML(imgTab,r.id,r.Title)}</td>
+      <td title="${esc(r.Title)}">${esc(r.Title)}</td>
+      <td>${esc(r.Character||'')}</td>
+      <td>${esc(r.Brand||'')}</td>
+      <td>${typeBadge(r.Type)}</td>
+      <td>${scaleDisp(r.Scale)}</td>
+      <td>${fmtDate(r['Release Date'])}</td>
+      <td class="money">${fmt(r['Best Price'])}</td>
+      <td class="money" style="font-weight:700">${fmt(r['Landed Cost'])}</td>
+      <td>${esc((r.Site||'').replace(/\n/g,' '))}</td>
+      <td><span class="badge badge-${r.Status}">${statusLabel(r.Status)}</span></td>
+      <td style="white-space:nowrap">${actions}</td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="12"><div class="empty">No ${esc(hunt.character)} figures found. Add figures with "${esc(hunt.character)}" as their Character in Owned or Pre-orders, or add wished entries here.</div></td></tr>`;
+}
+
+function renderAll(){ renderOwned(); renderPreorders(); if(ACTIVE_HUNT) renderHunt(); updateHeader() }
+
+function updateHeader(){
+  document.getElementById('h-total').textContent=DATA.owned.length;
+  document.getElementById('h-spent').textContent='$'+DATA.owned.reduce((s,r)=>s+(r['Landed Cost']||0),0).toFixed(0);
+
+  // Show hunt stat for active hunt, or first hunt, or hide
+  const huntStat=document.getElementById('h-hunt-stat');
+  let targetSlug=null;
+  if(ACTIVE_HUNT && DATA.hunts[ACTIVE_HUNT]) targetSlug=ACTIVE_HUNT;
+  else { const slugs=Object.keys(DATA.hunts); if(slugs.length) targetSlug=slugs[0]; }
+
+  if(targetSlug){
+    const hunt=DATA.hunts[targetSlug];
+    const charLower=hunt.character.toLowerCase();
+    const isMatch=r=>(r.Character||'').toLowerCase().includes(charLower);
+    const recv=DATA.owned.filter(isMatch).length;
+    const total=recv+DATA.preorders.filter(isMatch).length+hunt.wished.length;
+    document.getElementById('h-hunt-val').textContent=recv+'/'+total;
+    document.getElementById('h-hunt-label').textContent=hunt.character;
+    huntStat.style.display='';
+  } else {
+    huntStat.style.display='none';
+  }
+}
+
+function populateFilters(){
+  const types=[...new Set(DATA.owned.map(r=>r.Type).filter(Boolean))].sort();
+  const brands=[...new Set(DATA.owned.map(r=>r.Brand).filter(Boolean))].sort();
+  const sites=[...new Set(DATA.owned.map(r=>(r.Site||'').replace(/\n/g,' ')).filter(Boolean))].sort();
+  setOpts('filter-type-owned',types,'All Types');
+  setOpts('filter-brand-owned',brands,'All Brands');
+  setOpts('filter-site-owned',sites,'All Sites');
+}
+function setOpts(id,vals,all){
+  const el=document.getElementById(id),cur=el.value;
+  el.innerHTML=`<option value="">${all}</option>`+vals.map(v=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(v)}</option>`).join('');
+}
+
+// ====== SORTING ======
+document.querySelectorAll('#table-owned th[data-col]').forEach(th=>th.addEventListener('click',()=>{
+  const col=th.dataset.col;
+  if(SORT.owned.col===col) SORT.owned.asc=!SORT.owned.asc; else SORT.owned={col,asc:true};
+  th.closest('thead').querySelectorAll('th').forEach(x=>{x.classList.remove('sorted');if(x.querySelector('.sort-icon'))x.querySelector('.sort-icon').textContent='↕';});
+  th.classList.add('sorted'); th.querySelector('.sort-icon').textContent=SORT.owned.asc?'↑':'↓';
+  renderOwned();
+}));
+document.querySelectorAll('#table-preorders th[data-col]').forEach(th=>th.addEventListener('click',()=>{
+  const col=th.dataset.col;
+  if(SORT.preorders.col===col) SORT.preorders.asc=!SORT.preorders.asc; else SORT.preorders={col,asc:true};
+  th.closest('thead').querySelectorAll('th').forEach(x=>{x.classList.remove('sorted');if(x.querySelector('.sort-icon'))x.querySelector('.sort-icon').textContent='↕';});
+  th.classList.add('sorted'); th.querySelector('.sort-icon').textContent=SORT.preorders.asc?'↑':'↓';
+  renderPreorders();
+}));
+// Hunt table sort is attached in rebuildTabs()
+
+document.getElementById('search-owned').addEventListener('input',renderOwned);
+document.getElementById('search-preorders').addEventListener('input',renderPreorders);
+document.getElementById('search-hunt').addEventListener('input',renderHunt);
+['filter-type-owned','filter-brand-owned','filter-site-owned'].forEach(id=>document.getElementById(id).addEventListener('change',renderOwned));
+
+// ====== LIGHTBOX ======
+function openLightbox(tab,id,title){
+  const img=getImg(tab,id); if(!img)return;
+  document.getElementById('lightbox-img').src=img;
+  document.getElementById('lightbox-title').textContent=title;
+  document.getElementById('lightbox').classList.add('show');
+}
+function closeLightbox(){ document.getElementById('lightbox').classList.remove('show') }
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeLightbox();closeModal();}});
+
+// ====== MODAL ======
+function openModal(tab,editId,focusImg=false){
+  const isEdit=editId!=null;
+  const isHunt=isHuntTab(tab);
+  const huntCharacter=isHunt?DATA.hunts[huntSlugFrom(tab)]?.character:'';
+  const dataArr=getDataArr(tab);
+  const item=isEdit?dataArr.find(r=>r.id===editId):null;
+  PENDING_IMG=null;
+  const iTab=imgTabFor(tab);
+  const curImg=isEdit?getImg(iTab,editId):null;
+
+  let modalTitle='';
+  if(isHunt) modalTitle=(isEdit?'Edit ':'Add ')+huntCharacter+' Figure';
+  else if(tab==='preorders') modalTitle=(isEdit?'Edit ':'Add ')+'Pre-order';
+  else modalTitle=(isEdit?'Edit ':'Add ')+'Figure';
+
+  let h=`<h2>${esc(modalTitle)}</h2><form id="mf" onsubmit="return false" class="form-grid">`;
+
+  // Image panel
+  h+=`<div class="img-edit">
+    ${curImg?`<img class="img-preview" id="mimg" src="${curImg}" alt="">`:`<div class="img-preview-ph" id="mimg">📷</div>`}
+    <div class="img-edit-right">
+      <label>Image</label>
+      <input class="img-url-input" type="text" id="img-url" placeholder="Paste URL (AmiAmi, MFC, etc.)" oninput="previewUrl(this.value)">
+      <div class="img-edit-or">— or —</div>
+      <label class="upload-btn">Upload from file <input type="file" accept="image/*" onchange="handleUpload(event)" style="display:none"></label>
+      ${curImg?`<button type="button" class="btn btn-sm btn-ghost" onclick="clearImg(${editId??'null'},'${esc(iTab)}')">Remove image</button>`:''}
+    </div>
+  </div>`;
+
+  h+=`<div class="form-group full"><label>Title</label><input name="Title" required value="${esc(item?.Title||'')}"></div>`;
+  h+=`<div class="form-group full"><label>Character</label><input name="Character" value="${esc(item?.Character||huntCharacter)}" ${isHunt?'readonly style="opacity:0.7"':''}></div>`;
+  h+=`<div class="form-group"><label>Brand</label><input name="Brand" value="${esc(item?.Brand||'')}" list="dl-b"></div>`;
+  h+=`<div class="form-group"><label>Type</label><select name="Type"><option value="">—</option>${['Scale','Prize','Nendoroid','Bunny','Model','Mini'].map(t=>`<option${item?.Type===t?' selected':''}>${t}</option>`).join('')}</select></div>`;
+  h+=`<div class="form-group"><label>Scale (e.g. 1/7)</label><input name="Scale" value="${item?.Scale?scaleDisp(item.Scale):''}"></div>`;
+  h+=`<div class="form-group"><label>Release Date</label><input name="Release Date" type="month" value="${shortDate(item?.['Release Date'])}"></div>`;
+
+  if(tab==='owned'){
+    h+=`<div class="form-group"><label>Price</label><input name="Price" type="number" step="0.01" value="${item?.Price||''}"></div>`;
+    h+=`<div class="form-group"><label>Shipping</label><input name="Shipping" type="number" step="0.01" value="${item?.Shipping||''}"></div>`;
+    h+=`<div class="form-group"><label>Site</label><input name="Site" value="${esc((item?.Site||'').replace(/\n/g,' '))}" list="dl-s"></div>`;
+    h+=`<div class="form-group"><label>Month Paid</label><input name="Month Paid" type="month" value="${shortDate(item?.['Month Paid'])}"></div>`;
+  } else {
+    // Preorders and hunt wished use same fields
+    h+=`<div class="form-group"><label>Best Price</label><input name="Best Price" type="number" step="0.01" value="${item?.['Best Price']||''}"></div>`;
+    h+=`<div class="form-group"><label>Est. Shipping</label><input name="Est. Shipping" type="number" step="0.01" value="${item?.['Est. Shipping']||''}"></div>`;
+    h+=`<div class="form-group"><label>Site</label><input name="Site" value="${esc((item?.Site||'').replace(/\n/g,' '))}" list="dl-s"></div>`;
+    if(tab==='preorders') h+=`<div class="form-group"><label>Paid In Advance</label><input name="Paid In Advance" type="number" step="0.01" value="${item?.['Paid In Advance']||''}"></div>`;
+    if(isHunt) h+=`<input type="hidden" name="Status" value="W">`;
+  }
+
+  h+=`</form>`;
+  const allItems=[...DATA.owned,...DATA.preorders,...Object.values(DATA.hunts).flatMap(h=>h.wished)];
+  h+=`<datalist id="dl-b">${[...new Set(allItems.map(r=>r.Brand).filter(Boolean))].sort().map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+  h+=`<datalist id="dl-s">${[...new Set(allItems.map(r=>(r.Site||'').replace(/\n/g,' ')).filter(Boolean))].sort().map(v=>`<option value="${esc(v)}">`).join('')}</datalist>`;
+  h+=`<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveModal('${esc(tab)}',${editId??'null'})">${isEdit?'Save':'Add'}</button></div>`;
+
+  document.getElementById('modal').innerHTML=h;
+  document.getElementById('modal-bg').classList.add('show');
+  if(!focusImg) document.querySelector('#mf input[name="Title"]').focus();
+}
+function closeModal(){ document.getElementById('modal-bg').classList.remove('show'); PENDING_IMG=null; }
+
+function previewUrl(url){
+  if(!url) return; PENDING_IMG=url;
+  const el=document.getElementById('mimg');
+  el.outerHTML=`<img class="img-preview" id="mimg" src="${url}" alt="">`;
+}
+
+function handleUpload(e){
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas'),max=300;
+      let w=img.width,h=img.height;
+      if(w>h){if(w>max){h=Math.round(h*max/w);w=max;}}else{if(h>max){w=Math.round(w*max/h);h=max;}}
+      c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+      PENDING_IMG=c.toDataURL('image/jpeg',0.85);
+      const el=document.getElementById('mimg');
+      el.outerHTML=`<img class="img-preview" id="mimg" src="${PENDING_IMG}" alt="">`;
+      document.getElementById('img-url').value='';
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImg(editId,imgTab){
+  PENDING_IMG='__clear__';
+  document.getElementById('mimg').outerHTML=`<div class="img-preview-ph" id="mimg">📷</div>`;
+  if(editId!==null&&editId!=='null'){
+    delete IMGS[imgKey(imgTab,editId)];
+    persistImgs();renderAll();
+  }
+}
+
+function activeTab(){ return CURRENT_TAB }
+
+function saveModal(tab,editId){
+  const form=document.getElementById('mf');
+  const fd=new FormData(form); const obj={};
+  fd.forEach((v,k)=>obj[k]=v);
+  if(!obj.Title){toast('Title is required','var(--accent)');return;}
+
+  const isHunt=isHuntTab(tab);
+  const iTab=imgTabFor(tab);
+
+  if(tab==='owned'){
+    obj.Price=parseFloat(obj.Price)||0; obj.Shipping=parseFloat(obj.Shipping)||0;
+    obj['Landed Cost']=obj.Price+obj.Shipping;
+    if(obj['Month Paid']) obj['Month Paid']=obj['Month Paid']+'-01';
+  } else {
+    obj['Best Price']=parseFloat(obj['Best Price'])||0; obj['Est. Shipping']=parseFloat(obj['Est. Shipping'])||0;
+    obj['Landed Cost']=obj['Best Price']+obj['Est. Shipping'];
+    if(tab==='preorders') obj['Paid In Advance']=parseFloat(obj['Paid In Advance'])||null;
+  }
+  obj.Scale=scaleFromStr(obj.Scale);
+  if(obj['Release Date']) obj['Release Date']=obj['Release Date']+'-01';
+
+  const dataArr=getDataArr(tab);
+  let finalId;
+  if(editId!=null&&editId!=='null'){
+    const idx=dataArr.findIndex(r=>r.id===editId);
+    if(idx>=0) dataArr[idx]={...dataArr[idx],...obj};
+    finalId=editId;
+  } else {
+    obj.id=dataArr.reduce((m,r)=>Math.max(m,r.id||0),0)+1;
+    dataArr.push(obj); finalId=obj.id;
+  }
+
+  // Persist image
+  const urlVal=document.getElementById('img-url')?.value?.trim();
+  if(PENDING_IMG&&PENDING_IMG!=='__clear__'){
+    IMGS[imgKey(iTab,finalId)]=PENDING_IMG; persistImgs();
+  } else if(PENDING_IMG==='__clear__'){
+    delete IMGS[imgKey(iTab,finalId)]; persistImgs();
+  } else if(urlVal){
+    IMGS[imgKey(iTab,finalId)]=urlVal; persistImgs();
+  }
+
+  persist(); renderAll(); closeModal();
+  toast(editId!=null&&editId!=='null'?'Saved':'Figure added');
+}
+
+function del(tab,id){
+  if(!confirm('Delete this figure?'))return;
+  const iTab=imgTabFor(tab);
+  const dataArr=getDataArr(tab);
+  const filtered=dataArr.filter(r=>r.id!==id);
+  setDataArr(tab, filtered);
+  delete IMGS[imgKey(iTab,id)];
+  persist(); persistImgs(); renderAll(); toast('Removed');
+}
+
+function moveToOwned(id){
+  const po=DATA.preorders.find(r=>r.id===id); if(!po)return;
+  const newId=DATA.owned.reduce((m,r)=>Math.max(m,r.id||0),0)+1;
+  DATA.owned.push({id:newId,Title:po.Title,Character:po.Character||'',Brand:po.Brand,Type:po.Type,Scale:po.Scale,
+    'Release Date':po['Release Date'],Price:po['Best Price'],Shipping:po['Est. Shipping'],
+    'Landed Cost':po['Landed Cost'],Site:po.Site,'Month Paid':new Date().toISOString().slice(0,7)+'-01'});
+  const poImg=IMGS[imgKey('preorders',id)];
+  if(poImg){IMGS[imgKey('owned',newId)]=poImg;delete IMGS[imgKey('preorders',id)];}
+  DATA.preorders=DATA.preorders.filter(r=>r.id!==id);
+  persist(); persistImgs(); renderAll(); toast('Moved to Owned');
+}
+
+function moveWishedToPreorder(slug,id){
+  const hunt=DATA.hunts[slug]; if(!hunt)return;
+  const w=hunt.wished.find(r=>r.id===id); if(!w)return;
+  const newId=DATA.preorders.reduce((m,r)=>Math.max(m,r.id||0),0)+1;
+  DATA.preorders.push({id:newId,Title:w.Title,Character:w.Character||'',Brand:w.Brand||'',
+    Type:w.Type||'',Scale:w.Scale||null,'Release Date':w['Release Date']||'',
+    'Best Price':w['Best Price']||null,'Est. Shipping':w['Est. Shipping']||null,
+    'Landed Cost':w['Landed Cost']||null,Site:w.Site||'',Notes:w.Notes||''});
+  const wImg=IMGS[imgKey('hunt-'+slug,id)];
+  if(wImg){IMGS[imgKey('preorders',newId)]=wImg;delete IMGS[imgKey('hunt-'+slug,id)];}
+  hunt.wished=hunt.wished.filter(r=>r.id!==id);
+  persist(); persistImgs(); renderAll(); toast('Moved to Pre-orders');
+}
+
+function moveWishedToOwned(slug,id){
+  const hunt=DATA.hunts[slug]; if(!hunt)return;
+  const w=hunt.wished.find(r=>r.id===id); if(!w)return;
+  const newId=DATA.owned.reduce((m,r)=>Math.max(m,r.id||0),0)+1;
+  DATA.owned.push({id:newId,Title:w.Title,Character:w.Character||'',Brand:w.Brand||'',
+    Type:w.Type||'',Scale:w.Scale||null,'Release Date':w['Release Date']||'',
+    Price:w['Best Price']||null,Shipping:w['Est. Shipping']||null,
+    'Landed Cost':w['Landed Cost']||null,Site:w.Site||'',
+    'Month Paid':new Date().toISOString().slice(0,7)+'-01'});
+  const wImg=IMGS[imgKey('hunt-'+slug,id)];
+  if(wImg){IMGS[imgKey('owned',newId)]=wImg;delete IMGS[imgKey('hunt-'+slug,id)];}
+  hunt.wished=hunt.wished.filter(r=>r.id!==id);
+  persist(); persistImgs(); renderAll(); toast('Moved to Owned');
+}
+
+// ====== EXPORT / IMPORT ======
+function resetAll(){
+  if(!confirm('Clear all data and images? This cannot be undone.\n\nUse Export first if you want a backup.')) return;
+  localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(IMAGES_KEY);
+  DATA={owned:[],preorders:[],hunts:{}}; IMGS={};
+  ACTIVE_HUNT=null; CURRENT_TAB='owned';
+  rebuildTabs(); switchTab('owned');
+  renderAll(); toast('Reset complete — import a backup to restore');
+}
+function exportJSON(){
+  const blob=new Blob([JSON.stringify({data:DATA,images:IMGS},null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='figure-tracker-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click(); toast('Backup exported');
+}
+function importJSON(e){
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const d=JSON.parse(reader.result);
+      if(d.data?.owned){
+        DATA=d.data;
+        if(!DATA.hunts) DATA.hunts={};
+        IMGS=d.images||{};
+      }
+      else if(d.owned){DATA={owned:d.owned,preorders:d.preorders||[],hunts:d.hunts||{}};IMGS={};}
+      else{toast('Invalid file','var(--accent)');return;}
+      ACTIVE_HUNT=null;
+      const slugs=Object.keys(DATA.hunts);
+      if(slugs.length) ACTIVE_HUNT=slugs[0];
+      persist();persistImgs();rebuildTabs();switchTab('owned');renderAll();toast('Imported');
+    }catch{toast('Parse error','var(--accent)');}
+  };
+  reader.readAsText(file); e.target.value='';
+}
+
+// ====== ANALYTICS ======
+let CHR={};
+function dC(id){if(CHR[id]){CHR[id].destroy();delete CHR[id];}}
+function renderAnalytics(){
+  const owned=DATA.owned;
+  const total=owned.reduce((s,r)=>s+(r['Landed Cost']||0),0);
+  const avg=owned.length?total/owned.length:0;
+  const pend=DATA.preorders.reduce((s,r)=>s+(r['Landed Cost']||0),0);
+  document.getElementById('kpi-total').textContent=owned.length;
+  document.getElementById('kpi-spent').textContent='$'+total.toFixed(0);
+  document.getElementById('kpi-avg').textContent='$'+avg.toFixed(0);
+  document.getElementById('kpi-pending').textContent='$'+pend.toFixed(0);
+
+  const mo={};
+  owned.forEach(r=>{const m=shortDate(r['Month Paid']);if(m)mo[m]=(mo[m]||0)+(r['Landed Cost']||0);});
+  const months=Object.keys(mo).sort();
+  let cum=0;const cumD=months.map(m=>{cum+=mo[m];return cum;});
+
+  dC('chart-monthly');
+  CHR['chart-monthly']=new Chart(document.getElementById('chart-monthly'),{type:'bar',
+    data:{labels:months.map(m=>{const d=new Date(m+'-01');return d.toLocaleDateString('en-US',{year:'2-digit',month:'short'});}),
+      datasets:[{label:'Monthly',data:months.map(m=>mo[m]),backgroundColor:'rgba(240,80,110,0.6)',borderRadius:4,yAxisID:'y'},
+        {label:'Cumulative',data:cumD,type:'line',borderColor:'#3b82f6',backgroundColor:'transparent',pointRadius:2,tension:0.3,yAxisID:'y1'}]},
+    options:{responsive:true,interaction:{mode:'index'},scales:{y:{beginAtZero:true,ticks:{callback:v=>'$'+v}},y1:{position:'right',beginAtZero:true,ticks:{callback:v=>'$'+v},grid:{display:false}}},plugins:{legend:{labels:{color:'#a1a1aa'}}}}});
+
+  const byT={};owned.forEach(r=>{const t=r.Type||'Other';byT[t]=(byT[t]||0)+(r['Landed Cost']||0);});
+  dC('chart-type');
+  CHR['chart-type']=new Chart(document.getElementById('chart-type'),{type:'doughnut',
+    data:{labels:Object.keys(byT),datasets:[{data:Object.values(byT),backgroundColor:['#3b82f6','#22c55e','#f97316','#f0506e','#eab308','#a1a1aa']}]},
+    options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#a1a1aa'}}}}});
+
+  const byS={};owned.forEach(r=>{const s=(r.Site||'Other').replace(/\n/g,' ');byS[s]=(byS[s]||0)+(r['Landed Cost']||0);});
+  const sE=Object.entries(byS).sort((a,b)=>b[1]-a[1]);
+  dC('chart-site');
+  CHR['chart-site']=new Chart(document.getElementById('chart-site'),{type:'bar',
+    data:{labels:sE.map(e=>e[0]),datasets:[{data:sE.map(e=>e[1]),backgroundColor:'rgba(59,130,246,0.6)',borderRadius:4}]},
+    options:{responsive:true,indexAxis:'y',scales:{x:{ticks:{callback:v=>'$'+v}}},plugins:{legend:{display:false}}}});
+
+  const byB={};owned.forEach(r=>{const b=r.Brand||'Other';byB[b]=(byB[b]||0)+(r['Landed Cost']||0);});
+  const bE=Object.entries(byB).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  dC('chart-brand');
+  CHR['chart-brand']=new Chart(document.getElementById('chart-brand'),{type:'bar',
+    data:{labels:bE.map(e=>e[0]),datasets:[{data:bE.map(e=>e[1]),backgroundColor:'rgba(34,197,94,0.6)',borderRadius:4}]},
+    options:{responsive:true,indexAxis:'y',scales:{x:{ticks:{callback:v=>'$'+v}}},plugins:{legend:{display:false}}}});
+
+  const bk={'$0-50':0,'$50-100':0,'$100-200':0,'$200-300':0,'$300-500':0,'$500+':0};
+  owned.forEach(r=>{const c=r['Landed Cost']||0;if(c<50)bk['$0-50']++;else if(c<100)bk['$50-100']++;else if(c<200)bk['$100-200']++;else if(c<300)bk['$200-300']++;else if(c<500)bk['$300-500']++;else bk['$500+']++;});
+  dC('chart-dist');
+  CHR['chart-dist']=new Chart(document.getElementById('chart-dist'),{type:'bar',
+    data:{labels:Object.keys(bk),datasets:[{data:Object.values(bk),backgroundColor:'rgba(249,115,22,0.6)',borderRadius:4}]},
+    options:{responsive:true,scales:{y:{beginAtZero:true,ticks:{stepSize:1}}},plugins:{legend:{display:false}}}});
+}
+
+function toast(msg,bg){
+  const el=document.getElementById('toast');el.textContent=msg;el.style.background=bg||'var(--green)';
+  el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+Chart.defaults.color='#a1a1aa';Chart.defaults.borderColor='#2d3142';
+
+// ====== INIT ======
+if(!hydrate()){
+  seedFromSeedFile();
+}
+rebuildTabs();
+renderAll();
+</script>
+</body>
+</html>
