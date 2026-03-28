@@ -99,6 +99,46 @@ No automated test suite. Test manually in the browser after changes. Key areas t
 
 Pushes to `main` trigger GitHub Actions (`.github/workflows/pages.yml`) which deploys to GitHub Pages automatically.
 
+## Versioning and Export Compatibility
+
+### Version Number (`APP_VERSION`)
+
+The app version is stored in the `APP_VERSION` constant (currently `'1.0.0'`) at the top of the script block. It is displayed in the header UI and embedded in every JSON export.
+
+**Bump `APP_VERSION` with every functional change.** Use semver:
+- **Patch** (1.0.0 → 1.0.1): Bug fixes, cosmetic tweaks, no data model changes.
+- **Minor** (1.0.0 → 1.1.0): New features, new fields added to data objects, new tabs or UI sections.
+- **Major** (1.0.0 → 2.0.0): Breaking changes to the data model that older exports cannot represent.
+
+### Export Format
+
+`exportJSON()` produces:
+
+```json
+{ "version": "1.0.0", "data": { ... }, "images": { ... } }
+```
+
+### Backward Compatibility in `importJSON()`
+
+Users may import backups created by any previous version. The import function **must** handle missing fields gracefully. The current approach is:
+
+1. Check for the `d.data.owned` shape (v1.0.0+ format with wrapper).
+2. Fall back to the legacy flat shape (`d.owned` at top level, pre-wrapper format).
+3. Default missing keys — e.g., `DATA.hunts ||= {}`, `DATA.wishlist ||= []`.
+
+**When adding new fields or data sections:**
+- Always provide a default value in `importJSON()` for older exports that lack the field (e.g., `if(!DATA.newField) DATA.newField = defaultValue;`).
+- Never rename or remove existing fields from the `DATA` structure without adding a migration path in `importJSON()` that maps old field names to new ones.
+- Add a comment noting which version introduced the field (e.g., `// added in v1.1.0`).
+
+**When changing field semantics or types:**
+- Convert old values to the new format inside `importJSON()`.
+- Bump the major version if the change is irreversible (old app versions can't read new exports).
+
+### localStorage Keys
+
+Storage keys are versioned (`figureTracker_v2`, `figureImages_v2`). If you ever change the storage schema in a way that's incompatible with the current format, increment the key suffix (e.g., `_v3`) and add migration logic in `hydrate()` to read and convert `_v2` data.
+
 ## Guidelines for AI Assistants
 
 - **Single-file app**: All changes go into `index.html`. Don't split into separate files unless explicitly asked.
@@ -109,3 +149,5 @@ Pushes to `main` trigger GitHub Actions (`.github/workflows/pages.yml`) which de
 - **Maintain dark theme**: Use existing CSS variables (`--bg`, `--card`, `--text`, `--accent`, etc.).
 - **Keep responsive**: The app uses CSS Grid and Flexbox for mobile support.
 - **Match existing patterns**: Follow the modal-based form system for create/edit, event delegation for tabs, and the render function pattern for displaying data.
+- **Bump `APP_VERSION`**: Every functional change must include a version bump. See the Versioning section above.
+- **Preserve export compatibility**: Never break `importJSON()` for older backups. Always add defaults for new fields and migration logic for changed fields.
